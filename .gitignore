@@ -1,0 +1,6 @@
+# Git 排除规则：本地临时文件不上传
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+*.log
