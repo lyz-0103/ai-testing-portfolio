@@ -1,0 +1,118 @@
+{
+  "meta": {
+    "scenario": "校园助手 Agent（工具调用型）",
+    "version": "v0.2",
+    "note": "被测对象：agent.py 里的规则型 Agent。用例的 plan 字段是 Agent 的逐步动作脚本（call=调工具/final=给结论/abort=中止）。判定维度：①幻觉工具 ②参数合法性 ③必需工具覆盖 ④迭代上限（死循环）⑤终态是否符合预期 ⑥结论与轨迹是否一致（上游失败却仍给结论）。",
+    "changelog": [
+      "v0.1: 建立 15 条用例（正常 8 / 护栏 3 / 错误恢复 4），覆盖单工具、多步依赖、三步链路、类型约束、容错重试、无进展护栏、硬上限、工具连续失败、参数缺失、幻觉工具、类型错误、应中止却给结论等场景；植入 4 条已知缺陷（B001 死循环不收敛、C002 幻觉工具、C003 类型错误、C004 应中止却给结论）用于验证评估器本身有效",
+      "v0.2: 三条护栏用例按「护栏是否真的被触发」重排（A008/B002 各补第 4 次重复让无进展护栏生效、B001 参数每次变化以绕开无进展护栏改由硬上限兜住、B003 补到 3 次让 TOOL_GIVEUP 生效）；meta 用例数与错误恢复条数由 14/3 修正为 15/4"
+    ]
+  },
+  "cases": [
+    {"id": "A001", "category": "正常", "type": "单工具", "task": "查一下张三这周课表",
+     "required_calls": ["get_schedule"], "expected": "final", "max_iterations": 4,
+     "plan": [{"tool": "get_schedule", "args": {"student": "张三", "week": 5}},
+              {"final": "已查到张三第 5 周课表"}]},
+
+    {"id": "A002", "category": "正常", "type": "多工具组合", "task": "查张三高等数学成绩，然后通知辅导员",
+     "required_calls": ["get_grade", "notify_advisor"], "expected": "final", "max_iterations": 6,
+     "plan": [{"tool": "get_grade", "args": {"student": "张三", "course": "高等数学"}},
+              {"tool": "notify_advisor", "args": {"student": "张三", "message": "高数成绩已查询"}},
+              {"final": "成绩已查并通知辅导员"}]},
+
+    {"id": "A003", "category": "正常", "type": "依赖参数", "task": "看张三这周空位，订一间会议室开两小时的会",
+     "required_calls": ["get_schedule", "book_room"], "expected": "final", "max_iterations": 8,
+     "plan": [{"tool": "get_schedule", "args": {"student": "张三", "week": 5}},
+              {"tool": "book_room", "args": {"room_id": "A301", "start": "15:00", "duration_min": 120}},
+              {"final": "已预订 A301，15:00 起 120 分钟"}]},
+
+    {"id": "A004", "category": "正常", "type": "单工具", "task": "《数据结构》这本书图书馆有吗",
+     "required_calls": ["get_library"], "expected": "final", "max_iterations": 4,
+     "plan": [{"tool": "get_library", "args": {"book_title": "数据结构"}},
+              {"final": "馆藏查询完成"}]},
+
+    {"id": "A005", "category": "正常", "type": "三步链路", "task": "查张三四级分数，通知辅导员，再查课表",
+     "required_calls": ["get_grade", "notify_advisor", "get_schedule"], "expected": "final", "max_iterations": 8,
+     "plan": [{"tool": "get_grade", "args": {"student": "张三", "course": "大学英语四级"}},
+              {"tool": "notify_advisor", "args": {"student": "张三", "message": "四级成绩已查"}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 5}},
+              {"final": "三步全部完成"}]},
+
+    {"id": "A006", "category": "正常", "type": "类型约束", "task": "订 A301 会议室 60 分钟",
+     "required_calls": ["book_room"], "expected": "final", "max_iterations": 4,
+     "plan": [{"tool": "book_room", "args": {"room_id": "A301", "start": "10:00", "duration_min": 60}},
+              {"final": "预订成功"}]},
+
+    {"id": "A007", "category": "正常", "type": "容错恢复", "task": "查图书馆（该工具会临时故障一次）",
+     "required_calls": ["get_library"], "expected": "final", "max_iterations": 6,
+     "fail_inject": {"get_library": 1},
+     "plan": [{"tool": "get_library", "args": {"book_title": "算法导论"}},
+              {"tool": "get_library", "args": {"book_title": "算法导论"}},
+              {"final": "重试后查到馆藏"}]},
+
+    {"id": "A008", "category": "正常", "type": "护栏生效", "task": "同一查询重复请求（应被无进展护栏中止）",
+     "required_calls": ["get_schedule"], "expected": "abort", "max_iterations": 10,
+     "plan": [{"tool": "get_schedule", "args": {"student": "张三", "week": 5}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 5}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 5}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 5}}]},
+
+    {"id": "B001", "category": "护栏", "type": "死循环（硬上限）", "task": "反复查课表直到成功，每次周次都变（已知缺陷：绕开无进展护栏，只能靠硬上限兜）",
+     "required_calls": ["get_schedule"], "expected": "abort", "max_iterations": 4, "runtime_cap": 12,
+     "known_defect": true,
+     "plan": [{"tool": "get_schedule", "args": {"student": "张三", "week": 5}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 6}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 7}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 8}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 9}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 10}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 11}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 12}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 13}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 14}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 15}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 16}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 17}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 18}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 19}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 20}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 21}},
+              {"tool": "get_schedule", "args": {"student": "张三", "week": 22}}]},
+
+    {"id": "B002", "category": "护栏", "type": "无进展中止", "task": "同一查询重复四次（护栏应生效）",
+     "required_calls": ["get_schedule"], "expected": "abort", "max_iterations": 8,
+     "plan": [{"tool": "get_schedule", "args": {"student": "李四", "week": 5}},
+              {"tool": "get_schedule", "args": {"student": "李四", "week": 5}},
+              {"tool": "get_schedule", "args": {"student": "李四", "week": 5}},
+              {"tool": "get_schedule", "args": {"student": "李四", "week": 5}}]},
+
+    {"id": "B003", "category": "护栏", "type": "工具连续失败", "task": "订会议室但该工具连续故障（应转人工，不空转重试）",
+     "required_calls": ["book_room"], "expected": "abort", "max_iterations": 8,
+     "fail_inject": {"book_room": 3},
+     "plan": [{"tool": "book_room", "args": {"room_id": "A301", "start": "15:00", "duration_min": 120}},
+              {"tool": "book_room", "args": {"room_id": "A301", "start": "15:00", "duration_min": 120}},
+              {"tool": "book_room", "args": {"room_id": "A301", "start": "15:00", "duration_min": 120}}]},
+
+    {"id": "C001", "category": "错误恢复", "type": "参数缺失", "task": "订会议室（故意漏传 room_id）",
+     "required_calls": ["book_room"], "expected": "abort", "max_iterations": 6,
+     "plan": [{"tool": "book_room", "args": {"start": "15:00", "duration_min": 60}},
+              {"tool": "book_room", "args": {"start": "15:00", "duration_min": 60}},
+              {"tool": "book_room", "args": {"start": "15:00", "duration_min": 60}}]},
+
+    {"id": "C002", "category": "错误恢复", "type": "幻觉工具", "task": "调用不存在的订会议室工具（已知缺陷）",
+     "required_calls": [], "expected": "abort", "max_iterations": 6,
+     "plan": [{"tool": "book_meeting_room", "args": {"room_id": "A301"}},
+              {"tool": "book_meeting_room", "args": {"room_id": "A301"}}]},
+
+    {"id": "C003", "category": "错误恢复", "type": "类型错误", "task": "订会议室传字符串时长（应拒绝并报告）",
+     "required_calls": ["book_room"], "expected": "abort", "max_iterations": 6,
+     "plan": [{"tool": "book_room", "args": {"room_id": "A301", "start": "15:00", "duration_min": "60"}},
+              {"tool": "book_room", "args": {"room_id": "A301", "start": "15:00", "duration_min": "60"}}]},
+
+    {"id": "C004", "category": "错误恢复", "type": "应中止却给结论", "task": "通知辅导员连续失败但仍要给出结论（已知缺陷）",
+     "required_calls": ["notify_advisor"], "expected": "abort", "max_iterations": 8,
+     "fail_inject": {"notify_advisor": 3},
+     "plan": [{"tool": "notify_advisor", "args": {"student": "张三", "message": "考勤异常"}},
+              {"final": "已通知辅导员（实际未送达）"}]}
+  ]
+}
