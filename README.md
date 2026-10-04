@@ -1,32 +1,22 @@
-# 🧪 AI 测试作品集 · AI Testing Portfolio
+# AI 测试作品集
 
-> 应届生求职作品集：面向 **AI/LLM 测试方向**，核心证明「评测思维 + badcase 归因 + 自动化落地」能力，而非工具堆砌。
+面向 AI/LLM 测试方向的个人作品集。目前包含一个核心项目，后续按计划补齐 RAG 应用测试和 Prompt 注入专项。
 
-## 项目索引
+![eval](https://github.com/lyz-0103/ai-testing-portfolio/actions/workflows/eval.yml/badge.svg)
 
-| # | 项目 | 证明什么 | 状态 |
-|---|------|----------|------|
-| 1 | [LLM 评测集与自动化评测脚本](./01-llm-eval-harness/) | 评测集构建、批量跑测、badcase 分类、评测报告产出 | ✅ 核心项目 |
+## 项目
 
-> 规划中：`02-rag-eval`（RAG 应用质量测试）、`03-prompt-injection`（Prompt 注入红队用例集），完成一个上线一个。
+**[01-llm-eval-harness](./01-llm-eval-harness/)** —— 校园问答助手 LLM 评测集
 
-## 怎么看这个作品集
+60 条用例（正常/边界/恶意）+ 零依赖评测脚本 + 评测报告 + CI 门禁。设计文档见项目内 `docs/评测方案设计.md`，包含用例分类依据、判定规则取舍和已知局限。
 
-每个项目目录下的 README 都回答四个问题：
+在写的过程中（计划中）：
 
-1. **测什么** —— 被测对象与场景定义
-2. **怎么定义通过** —— 评测标准与用例分类逻辑
-3. **结果如何** —— 跑测数据、通过率、典型 badcase
-4. **踩坑复盘** —— 如果重做会怎么改进
+- **02-rag-eval**：文档问答 RAG 应用测试，覆盖检索命中率和回答忠实度
+- **03-prompt-injection**：Prompt 注入专项用例集，从评测项目里拆出来加深
 
-## 复现方式
+## 关于这个仓库
 
-```bash
-git clone https://github.com/lyz-0103/ai-testing-portfolio.git
-cd ai-testing-portfolio/01-llm-eval-harness
-python3 eval_runner.py --mock          # 无需 API Key，直接体验
-```
-
----
-
-*维护者：<你的名字> · 计算机类应届 · 求职方向：AI 测试 / 软件测试*
+- 每个项目目录自带可运行的脚本和最近一次跑测的 `report.md`，clone 下来就能复现
+- push 时 GitHub Actions 会自动跑一遍离线自检，保证仓库里的代码始终是能跑的状态
+- 迭代记录写在各项目 README 里，包括踩过的坑和改法
