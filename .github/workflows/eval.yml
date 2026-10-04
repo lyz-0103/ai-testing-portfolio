@@ -1,0 +1,19 @@
+name: eval
+
+on: [push]
+
+jobs:
+  mock-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 离线自检（不依赖外部 API）
+        run: python 01-llm-eval-harness/eval_runner.py --mock
+      - name: 上传评测报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: 01-llm-eval-harness/report.md
