@@ -36,7 +36,7 @@ ALL_FILES = [
 ]
 
 
-def gh_request(method: str, url: str, payload: dict | None = None) -> dict | None:
+def gh_request(method, url, payload=None):
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers={
         "Authorization": f"Bearer {TOKEN}",
@@ -53,7 +53,8 @@ def gh_request(method: str, url: str, payload: dict | None = None) -> dict | Non
         raise
 
 
-def upload(rel: str, message: str) -> None:
+def upload(rel: str, message: str) -> str:
+    """上传单个文件，返回 "ok" / "skip"。"""
     path = os.path.join(ROOT, rel)
     with open(path, "rb") as f:
         raw = f.read()
@@ -62,7 +63,7 @@ def upload(rel: str, message: str) -> None:
     remote = gh_request("GET", f"{API}/contents/{urllib.parse.quote(rel)}")
     if remote and remote.get("sha") == local_sha:
         print(f"  跳过（内容未变）{rel}")
-        return
+        return "skip"
 
     payload = {"message": message, "content": base64.b64encode(raw).decode()}
     if remote:
@@ -70,6 +71,7 @@ def upload(rel: str, message: str) -> None:
 
     res = gh_request("PUT", f"{API}/contents/{urllib.parse.quote(rel)}", payload)
     print(f"  OK {rel} (commit {res['commit']['sha'][:8]})")
+    return "ok"
 
 
 def main() -> None:
@@ -81,9 +83,27 @@ def main() -> None:
     if not TOKEN:
         sys.exit("请先 export GH_TOKEN=<你的 GitHub classic token，需 repo 权限>")
     files = args.files if args.files else ALL_FILES
+
+    # 单个文件失败不能中断整批，否则前面的 OK 会混在报错里看不出来，
+    # 造成「以为全都传上去了、实际只传了一半」（2026-10-04 真实踩过一次）。
+    ok, skipped, failed = [], [], []
     for rel in files:
-        upload(rel, args.message)
-    print(f"\n同步完成：https://github.com/{REPO}")
+        try:
+            (ok if upload(rel, args.message) == "ok" else skipped).append(rel)
+        except SystemExit as e:
+            failed.append((rel, str(e)))
+            print(f"  ❌ {rel} 失败：{e}")
+        except Exception as e:  # noqa: BLE001
+            failed.append((rel, repr(e)))
+            print(f"  ❌ {rel} 失败：{e}")
+
+    print(f"\n已上传 {len(ok)} / 跳过 {len(skipped)} / 失败 {len(failed)}")
+    if failed:
+        print("失败清单（重跑本命令即可，已成功的会显示'跳过'）：")
+        for rel, why in failed:
+            print(f"  - {rel}  {why}")
+        sys.exit(1)
+    print(f"同步完成：https://github.com/{REPO}")
 
 
 if __name__ == "__main__":
