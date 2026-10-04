@@ -66,6 +66,20 @@ Token 有效期内不会重复要求登录。
 
 ---
 
+## 第六步：网络不通时的备用上传方案（已验证可用）
+
+如果 `git push` 报 `Failed to connect` / `CONNECT tunnel failed`（github.com 被墙或代理只放行了 api.github.com），用仓库自带的 API 上传工具：
+
+```bash
+export GH_TOKEN="ghp_你的token"        # 需要 repo 权限的 classic token
+cd /Users/lyz/WorkBuddy/2026-10-04-17-37-04/ai-testing-portfolio
+python3 tools/upload_to_github.py          # 上传全部，内容未变的自动跳过
+python3 tools/upload_to_github.py README.md  # 只更新指定文件
+```
+
+> 注意：API 上传和本地 git 提交是两条平行历史。等哪天 git push 恢复可用时，执行一次
+> `git pull origin main --allow-unrelated-histories && git push` 即可合并（内容相同，不会冲突）。
+
 ## 常见问题
 
 | 报错 | 原因 | 解决 |
