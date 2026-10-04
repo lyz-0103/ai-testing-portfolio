@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 .venv/
 *.log
+01-llm-eval-harness/results/
