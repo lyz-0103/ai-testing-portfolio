@@ -17,3 +17,18 @@ jobs:
         with:
           name: eval-report
           path: 01-llm-eval-harness/report.md
+
+  agent-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Agent 轨迹评测（确定性，无需 API Key）
+        run: python 02-agent-trace-testing/eval_agent.py
+      - name: 上传 Agent 轨迹报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-eval-report
+          path: 02-agent-trace-testing/report.md
