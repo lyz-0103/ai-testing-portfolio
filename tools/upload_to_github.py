@@ -7,9 +7,9 @@ GitHub 备用上传工具：通过 REST API 提交文件，不依赖 git push（
     export GH_TOKEN="ghp_xxx"                # 需要 repo 权限的 classic token
     python3 upload_to_github.py              # 上传全部文件（内容未变的自动跳过）
     python3 upload_to_github.py README.md    # 只上传指定文件
-
-原理：GET /contents/{path} 对比 blob sha -> 内容有变化时 PUT 覆盖并生成 commit。
+    python3 upload_to_github.py -m "feat: xxx" README.md  # 自定义 commit message
 """
+import argparse
 import base64
 import hashlib
 import json
@@ -25,12 +25,14 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 
 ALL_FILES = [
     ".gitignore",
+    ".github/workflows/eval.yml",
     "README.md",
-    "GitHub上传教程.md",
+    "tools/upload_to_github.py",
     "01-llm-eval-harness/README.md",
     "01-llm-eval-harness/eval_cases.json",
     "01-llm-eval-harness/eval_runner.py",
     "01-llm-eval-harness/report.md",
+    "01-llm-eval-harness/docs/评测方案设计.md",
 ]
 
 
@@ -71,12 +73,16 @@ def upload(rel: str, message: str) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="GitHub API 备用上传工具")
+    parser.add_argument("-m", "--message", default="chore: sync via API uploader", help="commit message")
+    parser.add_argument("files", nargs="*", help="要上传的文件（相对仓库根目录），缺省为全部")
+    args = parser.parse_args()
+
     if not TOKEN:
         sys.exit("请先 export GH_TOKEN=<你的 GitHub classic token，需 repo 权限>")
-    files = sys.argv[1:] if len(sys.argv) > 1 else ALL_FILES
-    msg = "docs: update via API uploader"
+    files = args.files if args.files else ALL_FILES
     for rel in files:
-        upload(rel, msg)
+        upload(rel, args.message)
     print(f"\n同步完成：https://github.com/{REPO}")
 
 
